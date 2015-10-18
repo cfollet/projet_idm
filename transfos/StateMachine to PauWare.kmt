@@ -1,0 +1,51 @@
+/* $Id:$ 
+ * Creation : October 18, 2015
+ * Licence  : EPL 
+ * Copyright:
+ * Authors  : 
+ *            root
+ */
+@mainClass "transfos::Main"
+@mainOperation "main"
+
+
+package transfos;
+
+
+require kermeta
+require "platform:/resource/StateMachine/metaModels/StateMachine.ecore"
+require "platform:/resource/StateMachine/transfos/Utils/StateMachineUtil.kmt"
+
+using kermeta::io
+using kermeta::standard
+using kermeta::exceptions
+using kermeta::persistence
+using SimplStateMachine
+using StateMachineUtil
+
+class Main
+{
+	/**
+	* The main operation of this program interact with the user for getting a XMI file name and then print
+	* the state machine model stored in this file before executing it.
+	*/
+	operation main() : Void is do 
+		var smUtil : StateMachineUtil init StateMachineUtil.new.initialize()
+		var sm : StateMachine
+		var fileName : String init "platform:/resource/StateMachine"
+		var dirName : String
+		var modelName : String
+		
+		dirName := stdio.read("Directory of the model? [default=models] ")
+		if (dirName == "") then dirName := "models" end	
+		modelName := stdio.read("Name of the model file? [default=Voiture.xmi] ")
+		if (modelName == "") then modelName := "Voiture.xmi" end	
+		fileName := fileName + "/" + dirName + "/" + modelName
+		
+		sm := smUtil.loadModel(fileName)
+		stdio.writeln("\n === State machine loaded ===\n")
+		
+		smUtil.printModel(sm)
+		
+	end
+}

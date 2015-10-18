@@ -5,8 +5,7 @@
  * Authors  : Eric Cariou
  */
  
-@mainClass "StateMachineUtil::Util"
-@mainOperation "main"
+@mainClass "StateMachineUtil::StateMachineUtil"
 
 package StateMachineUtil;
 
@@ -24,13 +23,18 @@ using SimplStateMachine
  * expecting their operation and variable elements
  */ 
  
-class Util
+class StateMachineUtil
 {
 
    /**
 	* Series of functions used for printing a model
 	*/
-	attribute indent : String
+	attribute indent : String 
+	
+	operation initialize() : StateMachineUtil is do
+		indent := ""
+		result := self
+	end
 
     operation pushIndent() is do
     	self.indent.append("    ")
@@ -138,27 +142,5 @@ class Util
  
  		resource.add(sm) 		 
  		resource.save
-	end
-
-	/**
-	* The main operation of this program interact with the user for getting a XMI file name and then print
-	* the state machine model stored in this file before executing it.
-	*/
-	operation main() : Void is do 
-		var sm : StateMachine
-		var fileName : String init "platform:/resource/StateMachine"
-		var dirName : String
-		var modelName : String
-		
-		dirName := stdio.read("Directory of the model? [default=models] ")
-		if (dirName == "") then dirName := "models" end	
-		modelName := stdio.read("Name of the model file? ")
-		fileName := fileName + "/" + dirName + "/" + modelName
-		
-		sm := loadModel(fileName)
-		stdio.writeln("\n === State machine loaded ===\n")
-		
-		printModel(sm)
-		
 	end
 }

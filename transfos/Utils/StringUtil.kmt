@@ -1,0 +1,25 @@
+/* $Id:$ 
+ * Creation : October 18, 2015
+ * Licence  : EPL 
+ * Copyright:
+ * Authors  : 
+ *            root
+ */
+@mainClass "StringUtil::StringUtil"
+
+package StringUtil;
+
+
+require kermeta
+using kermeta::standard
+
+class StringUtil
+{
+	operation replaceSpaceWithUnderscore(str : String) : String is do
+    	result := str.replace(" ","_")
+    end
+    
+    operation underscoreAndLower(str : String) : String is do
+    	result := "_"+str.toLowerCase
+    end
+}
