@@ -1,0 +1,60 @@
+/* $Id:$ 
+ * Creation : October 18, 2015
+ * Licence  : EPL 
+ * Copyright:
+ * Authors  : 
+ *            root
+ */
+@mainClass "Transformation::Transformation"
+
+
+package Transformation;
+
+
+require kermeta
+require "platform:/resource/StateMachine/transfos/utils/JavaUtil.kmt"
+require "platform:/resource/StateMachine/metaModels/StateMachine.ecore"
+
+using kermeta::standard
+using JavaUtil
+using SimplStateMachine
+
+class Transformation
+{
+	attribute indent : String 
+	attribute java_util : JavaUtil
+	
+	operation initialize() : Transformation is do
+		indent := ""
+		java_util := JavaUtil.new.initialize()
+		
+		result := self
+	end
+
+    operation pushIndent() is do
+    	self.indent.append("    ")
+    end
+    
+    operation popIndent() is do
+    	if (indent != void and indent.size>0) then
+	    	indent := indent.substring(0, indent.size-4)
+	    end
+    end
+    
+    operation transform(sm : StateMachine) is do
+    	stdio.writeln(java_util.printClass(sm.name) + "{ \n")
+		self.pushIndent()
+		sm.states.each { s | printState(s) }
+		stdio.writeln(self.indent+java_util.printAttribute("AbstractStatechart_monitor", sm.name))
+		self.popIndent()
+    end
+    
+	operation printState(state : State) is do
+		stdio.writeln(self.indent+java_util.printAttribute("AbstractStatechart",state.name))
+		if (CompositeState.isInstance(state)) then
+			var compState : CompositeState
+			compState ?= state
+			compState.states.each { s | printState(s) }		
+		end
+	end
+}

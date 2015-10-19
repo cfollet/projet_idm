@@ -12,7 +12,7 @@ package JavaUtil;
 
 
 require kermeta
-require "platform:/resource/StateMachine/transfos/Utils/StringUtil.kmt"
+require "platform:/resource/StateMachine/transfos/utils/StringUtil.kmt"
 
 using kermeta::standard
 using StringUtil
@@ -33,7 +33,7 @@ class JavaUtil
 		result := "public class "+ string_util.replaceSpaceWithUnderscore(className)
 	end
 	
-	operation printAttribute(attributeName : String, attributeType : String) : String is do 
+	operation printAttribute(attributeType : String, attributeName : String) : String is do 
 		result := "private "+ attributeType+" "+string_util.underscoreAndLower(string_util.replaceSpaceWithUnderscore(attributeName))+self.separator
 	end
 }

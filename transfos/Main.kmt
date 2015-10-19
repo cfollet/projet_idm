@@ -14,7 +14,8 @@ package transfos;
 
 require kermeta
 require "platform:/resource/StateMachine/metaModels/StateMachine.ecore"
-require "platform:/resource/StateMachine/transfos/Utils/StateMachineUtil.kmt"
+require "platform:/resource/StateMachine/transfos/utils/StateMachineUtil.kmt"
+require "platform:/resource/StateMachine/transfos/Transformation.kmt"
 
 using kermeta::io
 using kermeta::standard
@@ -22,6 +23,7 @@ using kermeta::exceptions
 using kermeta::persistence
 using SimplStateMachine
 using StateMachineUtil
+using Transformation
 
 class Main
 {
@@ -31,6 +33,7 @@ class Main
 	*/
 	operation main() : Void is do 
 		var smUtil : StateMachineUtil init StateMachineUtil.new.initialize()
+		var transformation : Transformation init Transformation.new.initialize()
 		var sm : StateMachine
 		var fileName : String init "platform:/resource/StateMachine"
 		var dirName : String
@@ -46,6 +49,8 @@ class Main
 		stdio.writeln("\n === State machine loaded ===\n")
 		
 		smUtil.printModel(sm)
+		stdio.writeln("\n === Transformation started ===\n")
+		transformation.transform(sm)
 		
 	end
 }

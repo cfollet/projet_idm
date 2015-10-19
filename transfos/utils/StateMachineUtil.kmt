@@ -29,7 +29,7 @@ class StateMachineUtil
    /**
 	* Series of functions used for printing a model
 	*/
-	attribute indent : String 
+	attribute indent : String
 	
 	operation initialize() : StateMachineUtil is do
 		indent := ""
