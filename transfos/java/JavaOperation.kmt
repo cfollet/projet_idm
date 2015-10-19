@@ -1,0 +1,51 @@
+/* $Id:$ 
+ * Creation : October 19, 2015
+ * Licence  : EPL 
+ * Copyright:
+ * Authors  : 
+ *            root
+ */
+@mainClass "JavaOperation::JavaOperation"
+
+
+package JavaOperation;
+
+
+require kermeta
+require "platform:/resource/StateMachine/transfos/java/JavaBase.kmt"
+using kermeta::standard
+using JavaBase
+
+class JavaOperation inherits JavaBase
+{
+	attribute return_type : String
+	attribute parameters : String[0..*]
+	attribute body : String[1..*]
+	
+	operation initialize(visibility : String, return_type : String, name : String) : JavaOperation is do
+		self.visibility := visibility
+		self.return_type := return_type
+		self.name := name
+		
+		result := self
+	end
+	
+	method equals(op : Object) : Boolean is do
+		var castedOp : JavaOperation
+    	castedOp ?= op
+    	result := self.name.equals (castedOp.name)
+	end
+	
+	method toString() : String is do
+		var res : String init ""
+		var indent : String init "    "
+		
+		res:=self.visibility+" "+self.return_type+" "+self.name+"("
+		self.parameters.each{ parameter | res := res +","+ parameter }
+		res:= res + "){\n"
+		self.body.each{ line | res := res + indent + line + ";\n" }
+		res := res + "}"
+		
+		result := res
+	end 
+}

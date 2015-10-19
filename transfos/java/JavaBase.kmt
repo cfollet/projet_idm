@@ -1,0 +1,31 @@
+/* $Id:$ 
+ * Creation : October 19, 2015
+ * Licence  : EPL 
+ * Copyright:
+ * Authors  : 
+ *            root
+ */
+@mainClass "JavaBase::JavaBase"
+
+
+package JavaBase;
+
+
+require kermeta
+using kermeta::standard
+abstract class JavaBase
+{
+	attribute indent : String
+	attribute name : String
+	attribute visibility : String
+	
+	operation pushIndent() is do
+    	self.indent.append("    ")
+    end
+    
+    operation popIndent() is do
+    	if (indent != void and indent.size>0) then
+	    	indent := indent.substring(0, indent.size-4)
+	    end
+    end
+}

@@ -51,6 +51,7 @@ class Main
 		smUtil.printModel(sm)
 		stdio.writeln("\n === Transformation started ===\n")
 		transformation.transform(sm)
+		stdio.writeln(transformation.java_class.toString())
 		
 	end
 }

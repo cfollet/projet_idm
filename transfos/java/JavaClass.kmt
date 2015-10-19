@@ -1,0 +1,49 @@
+/* $Id:$ 
+ * Creation : October 19, 2015
+ * Licence  : EPL 
+ * Copyright:
+ * Authors  : 
+ *            root
+ */
+@mainClass "JavaClass::JavaClass"
+
+
+package JavaClass;
+
+
+require kermeta
+require "platform:/resource/StateMachine/transfos/java/JavaBase.kmt"
+require "platform:/resource/StateMachine/transfos/java/JavaOperation.kmt"
+require "platform:/resource/StateMachine/transfos/java/JavaAttribute.kmt"
+
+using kermeta::standard
+using JavaBase
+using JavaOperation
+using JavaAttribute
+
+class JavaClass inherits JavaBase
+{
+	attribute attributes : Set<JavaAttribute>
+	attribute operations : Set<JavaOperation>
+	
+	operation initialize(visibility : String, name : String) : JavaClass is do
+		self.visibility := visibility
+		self.name := name
+		self.attributes := Set<JavaAttribute>.new
+		self.operations := Set<JavaOperation>.new
+		
+		result := self
+	end
+	
+	method toString() : String is do
+		var res : String init ""
+		var indent : String init "    "
+		
+		res := self.visibility + "class " + self.name +"{\n"
+		self.attributes.each{attr | res := res + indent + attr.toString()}
+		self.operations.each{op | res := res + indent + op.toString()}
+		res := res+ "}"
+		
+		result := res
+	end 
+}

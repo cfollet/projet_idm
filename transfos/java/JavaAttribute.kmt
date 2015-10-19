@@ -1,0 +1,39 @@
+/* $Id:$ 
+ * Creation : October 19, 2015
+ * Licence  : EPL 
+ * Copyright:
+ * Authors  : 
+ *            root
+ */
+@mainClass "JavaAttribute::JavaAttribute"
+
+
+package JavaAttribute;
+
+
+require kermeta
+require "platform:/resource/StateMachine/transfos/java/JavaBase.kmt"
+using kermeta::standard
+using JavaBase
+class JavaAttribute inherits JavaBase
+{
+	attribute type : String
+	
+	operation initialize(visibility : String, type : String, name : String) : JavaAttribute is do
+		self.visibility := visibility
+		self.type := type
+		self.name := name
+		
+		result := self
+	end
+	
+	method equals(attr : Object) : Boolean is do
+		var castedAttr : JavaAttribute
+    	castedAttr ?= attr
+    	result := self.name.equals (castedAttr.name)
+	end
+	
+	method toString() : String is do
+		result := self.visibility+" "+self.type+" "+self.name+";\n"
+	end 
+}
