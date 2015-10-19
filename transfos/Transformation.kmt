@@ -67,10 +67,10 @@ class Transformation
 	operation addStateBehavior(state : State, op : JavaOperation) is do 
 		if (not CompositeState.isInstance(state)) 
 			then // Not a composite state, just print it
-				op.body.add(str_util.underscoreAndLower(state.name)+" = new StateChart(\""+state.name+"\")")
+				op.body.add(str_util.underscoreAndLower(state.name)+" = new Statechart(\""+state.name+"\")")
 				// Now, print his operation
 				if(state.~operation != void)
-					then op.body.add(str_util.underscoreAndLower(state.name)+".addActivity(\""+str_util.replaceSpaceWithUnderscore(state.name)+"Activity\")")
+					then op.body.add(str_util.underscoreAndLower(state.name)+".doActivity(this, \""+str_util.replaceSpaceWithUnderscore(state.name)+"Activity\")")
 				end
 				op.body.add("") 
 			else // A composite state, compute all child state recursively and add xor childs chain 
@@ -88,26 +88,39 @@ class Transformation
 				compState.states.each { s | line := line + "(" + str_util.underscoreAndLower(s.name) + ".xor" }
 				line := line.substring(1,line.size-4)
 				compState.states.each { s | line := line + ")"}
-				line := line.substring(1,line.size-1)
+				line := line.substring(0,line.size-1)
 				line := line + ".name(\""+compState.name+"\")"
-				op.body.add(str_util.underscoreAndLower(state.name)+" = "+ line)
+				op.body.add(line)
 		end
 	end
 	
 	
 	operation createConstructor (sm : StateMachine) is do
-		var op : JavaOperation init JavaOperation.new.initialize(
-			"public",
-			"",
-			str_util.replaceSpaceWithUnderscore(sm.name)
-		)
+		var op : JavaOperation init JavaOperation.new.initialize("public","",str_util.replaceSpaceWithUnderscore(sm.name))
+		var line : String init ""
 
-		sm.states.each { s | 
-				addStateBehavior(s,op)
+		sm.states.each { s | addStateBehavior(s,op) }
+		
+		// add method exception
+		op.exceptions.add("Statechart_exception")
 				
-		}
 		// Add StateMachine entry point
 		op.body.add(str_util.underscoreAndLower(sm.initialState.referencedState.name)+".inputState()")
+		
+		// add the Monitor line with a chain of the child of StateMachine
+		line := str_util.underscoreAndLower(sm.name)+" = new Statechart_monitor"
+		sm.states.each { s | line := line + "(" + str_util.underscoreAndLower(s.name) + ".xor" }
+		line := line.substring(0,line.size-4)
+		sm.states.each { s | line := line + ")"}
+		line := line.substring(0,line.size-1)
+		line := line+ ","+ "\""+str_util.replaceSpaceWithUnderscore(sm.name)+"\",AbstractStatechart_monitor.Show_on_system_out, null)"
+		op.body.add(line)
+		
 		java_class.operations.add(op)
 	end
+
+	operation createStart(sm : StateMachine) is do
+		
+	end	
+
 }

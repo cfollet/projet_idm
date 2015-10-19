@@ -19,13 +19,16 @@ using JavaBase
 class JavaOperation inherits JavaBase
 {
 	attribute return_type : String
-	attribute parameters : String[0..*]
+	attribute parameters : Set<String>
+	attribute exceptions : Set<String>
 	attribute body : Bag<String>
 	
 	operation initialize(visibility : String, return_type : String, name : String) : JavaOperation is do
 		self.visibility := visibility
 		self.return_type := return_type
 		self.name := name
+		self.parameters := Set<String>.new
+		self.exceptions := Set<String>.new
 		self.body := Bag<String>.new
 		
 		result := self
@@ -41,15 +44,29 @@ class JavaOperation inherits JavaBase
 		var res : String init ""
 		var indent : String init "    "
 		
-		res:=self.visibility+" "+self.return_type+" "+self.name+"("
-		self.parameters.each{ parameter | res := res +","+ parameter }
-		res:= res + "){\n"
+		res:=self.visibility+" "+self.return_type+" "+self.name
+		res := res + "("
+		if(self.parameters.size > 0) 
+			then 	self.parameters.each{parameter | res := res + parameter + ", "}
+					res := res.substring(0, res.size-2)
+		end
+		res:= res + ")"
+		if(self.exceptions.size > 0) 
+			then 	res := res + " throws "
+					self.exceptions.each{exception | res := res + exception + ", "}
+					res := res.substring(0, res.size-2)
+		end
+		
+		res := res + "{\n"
+		
+		indent := indent + indent
 		self.body.each{ line | 
 			if(line != "")
 				then res := res + indent + line + ";\n" 
 				else res := res + " \n"
 			end
 		}
+		indent := "    "
 		res := res + indent + "}\n"
 		
 		result := res

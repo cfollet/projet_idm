@@ -39,8 +39,10 @@ class JavaClass inherits JavaBase
 		var res : String init ""
 		var indent : String init "    "
 		
-		res := self.visibility + "class " + self.name +"{\n"
+		res := self.visibility + " class " + self.name +"{\n"
+		res := res + "\n"
 		self.attributes.each{attr | res := res + indent + attr.toString()}
+		res := res + "\n"
 		self.operations.each{op | res := res + indent + op.toString()}
 		res := res+ "}"
 		
