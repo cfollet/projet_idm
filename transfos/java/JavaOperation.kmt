@@ -20,12 +20,13 @@ class JavaOperation inherits JavaBase
 {
 	attribute return_type : String
 	attribute parameters : String[0..*]
-	attribute body : String[1..*]
+	attribute body : Bag<String>
 	
 	operation initialize(visibility : String, return_type : String, name : String) : JavaOperation is do
 		self.visibility := visibility
 		self.return_type := return_type
 		self.name := name
+		self.body := Bag<String>.new
 		
 		result := self
 	end
@@ -43,8 +44,13 @@ class JavaOperation inherits JavaBase
 		res:=self.visibility+" "+self.return_type+" "+self.name+"("
 		self.parameters.each{ parameter | res := res +","+ parameter }
 		res:= res + "){\n"
-		self.body.each{ line | res := res + indent + line + ";\n" }
-		res := res + "}"
+		self.body.each{ line | 
+			if(line != "")
+				then res := res + indent + line + ";\n" 
+				else res := res + " \n"
+			end
+		}
+		res := res + indent + "}\n"
 		
 		result := res
 	end 

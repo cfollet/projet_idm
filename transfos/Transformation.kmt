@@ -14,6 +14,7 @@ package Transformation;
 require kermeta
 require "platform:/resource/StateMachine/transfos/java/JavaClass.kmt"
 require "platform:/resource/StateMachine/transfos/java/JavaAttribute.kmt"
+require "platform:/resource/StateMachine/transfos/java/JavaOperation.kmt"
 require "platform:/resource/StateMachine/transfos/utils/StringUtil.kmt"
 require "platform:/resource/StateMachine/metaModels/StateMachine.ecore"
 
@@ -22,6 +23,7 @@ using JavaClass
 using SimplStateMachine
 using StringUtil
 using JavaAttribute
+using JavaOperation
 
 class Transformation
 {
@@ -41,20 +43,71 @@ class Transformation
     	java_class.name := str_util.replaceSpaceWithUnderscore(sm.name)
     	
     	// Add all attributes
-		sm.states.each { s | printState(s) }
+		sm.states.each { s | addAttribute(s) }
 		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart_monitor",str_util.underscoreAndLower(sm.name))
 		java_class.attributes.add(attr)
 		
 		// Add all methods
+		createConstructor(sm)
     end
     
-	operation printState(state : State) is do
+    // add recursively a state and his child if any
+	operation addAttribute(state : State) is do
 		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart",str_util.underscoreAndLower(state.name))
 		java_class.attributes.add(attr)
 		if (CompositeState.isInstance(state)) then
 			var compState : CompositeState
 			compState ?= state
-			compState.states.each { s | printState(s) }		
+			compState.states.each { s | addAttribute(s) }		
 		end
+	end
+	
+	// add the behavior of the current state : event, guard, ....
+	// the op parameter is for adding it inside a constructor for exemple
+	operation addStateBehavior(state : State, op : JavaOperation) is do 
+		if (not CompositeState.isInstance(state)) 
+			then // Not a composite state, just print it
+				op.body.add(str_util.underscoreAndLower(state.name)+" = new StateChart(\""+state.name+"\")")
+				// Now, print his operation
+				if(state.~operation != void)
+					then op.body.add(str_util.underscoreAndLower(state.name)+".addActivity(\""+str_util.replaceSpaceWithUnderscore(state.name)+"Activity\")")
+				end
+				op.body.add("") 
+			else // A composite state, compute all child state recursively and add xor childs chain 
+				var compState : CompositeState
+				var line : String init ""
+				compState ?= state
+				
+				// compute child recursively
+				compState.states.each { s | addStateBehavior(s, op)}
+				
+				// add entry point of the composite state
+				op.body.add(str_util.underscoreAndLower(compState.initialState.referencedState.name)+".inputState()")
+				
+				// add xor chain
+				compState.states.each { s | line := line + "(" + str_util.underscoreAndLower(s.name) + ".xor" }
+				line := line.substring(1,line.size-4)
+				compState.states.each { s | line := line + ")"}
+				line := line.substring(1,line.size-1)
+				line := line + ".name(\""+compState.name+"\")"
+				op.body.add(str_util.underscoreAndLower(state.name)+" = "+ line)
+		end
+	end
+	
+	
+	operation createConstructor (sm : StateMachine) is do
+		var op : JavaOperation init JavaOperation.new.initialize(
+			"public",
+			"",
+			str_util.replaceSpaceWithUnderscore(sm.name)
+		)
+
+		sm.states.each { s | 
+				addStateBehavior(s,op)
+				
+		}
+		// Add StateMachine entry point
+		op.body.add(str_util.underscoreAndLower(sm.initialState.referencedState.name)+".inputState()")
+		java_class.operations.add(op)
 	end
 }
