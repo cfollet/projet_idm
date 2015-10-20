@@ -55,8 +55,11 @@ class Transformation
 		createConstructor(sm)
 		createStart(sm)
 		createStop(sm)
+		createEvents(sm)
     end
     
+    // Get the name of the given state and prefix it by 
+    // the name of his container if any
     operation getFullStateName(s : State) : String is do
     	var name : String init ""
     	if (StateMachine.isInstance(s)) then
@@ -74,7 +77,8 @@ class Transformation
     	end
     end
     
-    // add recursively a state and his child if any
+    // add recursively a state and his child if any 
+    // to the java class as an attribute
 	operation addAttribute(state : State) is do
 		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart",getFullStateName(state))
 		java_class.attributes.add(attr)
@@ -85,7 +89,7 @@ class Transformation
 		end
 	end
 	
-	// add the behavior of the current state (activity, ...)
+	// add the behavior of the current state (activity, inputState, ...)
 	// the op parameter is for adding it inside a constructor for exemple
 	operation addStateBehavior(state : State, op : JavaOperation) is do 
 		if (not CompositeState.isInstance(state)) 
@@ -117,7 +121,7 @@ class Transformation
 		end
 	end
 	
-	
+	// create the java class constructor and initialize the behavior
 	operation createConstructor (sm : StateMachine) is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","",str_util.replaceSpaceWithUnderscore(sm.name))
 		var line : String init ""
@@ -142,6 +146,7 @@ class Transformation
 		java_class.operations.add(op)
 	end
 
+	// Create start method where we add the transitions [with event and guard]
 	operation createStart(sm : StateMachine) is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","void","start")
 		var line : String init ""
@@ -151,25 +156,28 @@ class Transformation
 		
 		sm.transitions.each{transition | 
 			// adding the event name 
-			line := str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".fires(\""+str_util.replaceSpaceWithUnderscore(transition.event.name)+"\", "
+			line := str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".fires(\""+str_util.replaceSpaceWithUnderscore(transition.event.name)+"__Event\", "
 			
 			// adding the source and the target
 			line := line + getFullStateName(transition.source) + ", "
 			line := line + getFullStateName(transition.target) + ", "
 			
+			// adding the guard if any
 			if(transition.guard != void)
 				then line := line + "this, \"" + getFullStateName(transition.source)+"_"+ getFullStateName(transition.target)+ "__Guard" + "\""
-				else line := line + "true" // Optionnal ?
+				else line := line + "true" // Optionnal in fires() parameters?
 			end
 			line := line + ")"
 			op.body.add(line)
 		}
 		
+		// Start the statemachine
 		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".start()")
 		
 		java_class.operations.add(op)
 	end	
 	
+	// Stop method to stop the statemachine ^^
 	operation createStop(sm : StateMachine) is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","void","stop")
 		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".stop()")
@@ -178,6 +186,30 @@ class Transformation
 		op.exceptions.add("Statechart_exception")
 		
 		java_class.operations.add(op)
+	end
+	
+	// add all events' function
+	operation createEvents(sm : StateMachine) is do
+		sm.events.each{event | 
+			var function_name : String init str_util.replaceSpaceWithUnderscore(event.name)+"__Event"
+			var op : JavaOperation init JavaOperation.new.initialize("public","void",function_name)
+			
+			// add method exception
+			op.exceptions.add("Statechart_exception")
+			
+			op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".run_to_completion(\""+event.name+"__Event\")")
+			java_class.operations.add(op)
+		}
+	end
+	
+	// Create all activities' functions with the operations done inside.
+	operation createActivities(sm : StateMachine) is do
+		
+	end
+	
+	// Create all guards' functions (boolean) 
+	operation createGuards(sm : StateMachine) is do
+	
 	end
 
 }
