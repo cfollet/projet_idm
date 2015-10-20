@@ -19,6 +19,10 @@ class StringUtil
     	result := str.replace(" ","_")
     end
     
+     operation addUnderscore(str : String) : String is do
+    	result := "_"+ str
+    end
+    
     operation underscoreAndLower(str : String) : String is do
     	result := "_"+str.toLowerCase
     end

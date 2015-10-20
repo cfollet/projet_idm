@@ -3,7 +3,11 @@
  * Licence  : EPL 
  * Copyright:
  * Authors  : 
- *            root
+ * Namming convention : 
+ * 		attribute : lowercase and underscore separated
+ *		method name : undersocre separated 
+ *			guard  : {from}__{to}__Guard
+ *			activity : {State_Name}__Activity
  */
 @mainClass "Transformation::Transformation"
 
@@ -44,16 +48,34 @@ class Transformation
     	
     	// Add all attributes
 		sm.states.each { s | addAttribute(s) }
-		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart_monitor",str_util.underscoreAndLower(sm.name))
+		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart_monitor",str_util.addUnderscore(sm.name))
 		java_class.attributes.add(attr)
 		
 		// Add all methods
 		createConstructor(sm)
+		createStart(sm)
+    end
+    
+    operation getFullStateName(s : State) : String is do
+    	var name : String init ""
+    	if (StateMachine.isInstance(s)) then
+    		result := ""
+    	else
+    		name := str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(s.name))
+    		if (s.container != void) then 
+    			var compState : State
+    			var compName : String
+    			compState ?= s.container
+    			compName := getFullStateName(compState)
+    			if not(compName.equals("")) then name := compName + "_" + name end 
+    		end
+    		result := name
+    	end
     end
     
     // add recursively a state and his child if any
 	operation addAttribute(state : State) is do
-		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart",str_util.underscoreAndLower(state.name))
+		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart",getFullStateName(state))
 		java_class.attributes.add(attr)
 		if (CompositeState.isInstance(state)) then
 			var compState : CompositeState
@@ -62,15 +84,15 @@ class Transformation
 		end
 	end
 	
-	// add the behavior of the current state : event, guard, ....
+	// add the behavior of the current state (activity, ...)
 	// the op parameter is for adding it inside a constructor for exemple
 	operation addStateBehavior(state : State, op : JavaOperation) is do 
 		if (not CompositeState.isInstance(state)) 
 			then // Not a composite state, just print it
-				op.body.add(str_util.underscoreAndLower(state.name)+" = new Statechart(\""+state.name+"\")")
+				op.body.add(getFullStateName(state) + " = new Statechart(\""+getFullStateName(state)+"\")")
 				// Now, print his operation
 				if(state.~operation != void)
-					then op.body.add(str_util.underscoreAndLower(state.name)+".doActivity(this, \""+str_util.replaceSpaceWithUnderscore(state.name)+"Activity\")")
+					then op.body.add(getFullStateName(state)+".doActivity(this, \""+getFullStateName(state)+"__Activity\")")
 				end
 				op.body.add("") 
 			else // A composite state, compute all child state recursively and add xor childs chain 
@@ -82,14 +104,14 @@ class Transformation
 				compState.states.each { s | addStateBehavior(s, op)}
 				
 				// add entry point of the composite state
-				op.body.add(str_util.underscoreAndLower(compState.initialState.referencedState.name)+".inputState()")
+				op.body.add(getFullStateName(compState.initialState.referencedState)+".inputState()")
 				
 				// add xor chain
-				compState.states.each { s | line := line + "(" + str_util.underscoreAndLower(s.name) + ".xor" }
+				compState.states.each { s | line := line + "(" + getFullStateName(s) + ".xor" }
 				line := line.substring(1,line.size-4)
 				compState.states.each { s | line := line + ")"}
 				line := line.substring(0,line.size-1)
-				line := line + ".name(\""+compState.name+"\")"
+				line := line + ".name(\""+getFullStateName(compState)+"\")"
 				op.body.add(line)
 		end
 	end
@@ -105,11 +127,11 @@ class Transformation
 		op.exceptions.add("Statechart_exception")
 				
 		// Add StateMachine entry point
-		op.body.add(str_util.underscoreAndLower(sm.initialState.referencedState.name)+".inputState()")
+		op.body.add(getFullStateName(sm.initialState.referencedState)+".inputState()")
 		
 		// add the Monitor line with a chain of the child of StateMachine
-		line := str_util.underscoreAndLower(sm.name)+" = new Statechart_monitor"
-		sm.states.each { s | line := line + "(" + str_util.underscoreAndLower(s.name) + ".xor" }
+		line := str_util.addUnderscore(sm.name)+" = new Statechart_monitor"
+		sm.states.each { s | line := line + "(" + getFullStateName(s) + ".xor" }
 		line := line.substring(0,line.size-4)
 		sm.states.each { s | line := line + ")"}
 		line := line.substring(0,line.size-1)
@@ -120,7 +142,28 @@ class Transformation
 	end
 
 	operation createStart(sm : StateMachine) is do
+		var op : JavaOperation init JavaOperation.new.initialize("public","void","start")
+		var line : String init ""
 		
+		// add method exception
+		op.exceptions.add("Statechart_exception")
+		
+		sm.transitions.each{transition | 
+			// adding the event name 
+			line := str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".fires(\""+str_util.replaceSpaceWithUnderscore(transition.event.name)+"\", "
+			
+			// adding the source and the target
+			line := line + getFullStateName(transition.source) + ", "
+			line := line + getFullStateName(transition.target) + ", "
+			
+			if(transition.guard != void)
+				then line := line + "this, \"" + getFullStateName(transition.source)+"_"+ getFullStateName(transition.target)+ "__Guard" + "\""
+				else line := line + "true" // Optionnal ?
+			end
+			line := line + ")"
+			op.body.add(line)
+		}
+		java_class.operations.add(op)
 	end	
 
 }
