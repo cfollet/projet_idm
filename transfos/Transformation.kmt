@@ -54,6 +54,7 @@ class Transformation
 		// Add all methods
 		createConstructor(sm)
 		createStart(sm)
+		createStop(sm)
     end
     
     operation getFullStateName(s : State) : String is do
@@ -163,7 +164,20 @@ class Transformation
 			line := line + ")"
 			op.body.add(line)
 		}
+		
+		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".start()")
+		
 		java_class.operations.add(op)
 	end	
+	
+	operation createStop(sm : StateMachine) is do
+		var op : JavaOperation init JavaOperation.new.initialize("public","void","stop")
+		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".stop()")
+		
+		// add method exception
+		op.exceptions.add("Statechart_exception")
+		
+		java_class.operations.add(op)
+	end
 
 }
