@@ -29,11 +29,14 @@ using StringUtil
 using JavaAttribute
 using JavaOperation
 
+enumeration Operators { add; sub; mul; div; eq; neq; gt; gte; lt; lte; ~and; ~or; ~not; } 
+
 class Transformation
 {
 	attribute java_class : JavaClass
 	attribute str_util : StringUtil
-	
+	attribute sm : StateMachine
+
 	operation initialize() : Transformation is do
 		java_class := JavaClass.new.initialize("public","")
 		str_util := StringUtil.new
@@ -43,19 +46,28 @@ class Transformation
 
 	// ecore -> java pau ware
     operation transform(sm : StateMachine) is do
+    	// Set the StateMachine 
+    	self.sm := sm
     	// Set class name
-    	java_class.name := str_util.replaceSpaceWithUnderscore(sm.name)
+    	java_class.name := str_util.replaceSpaceWithUnderscore(self.sm.name)
     	
     	// Add all attributes
-		sm.states.each { s | addAttribute(s) }
-		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart_monitor",str_util.addUnderscore(sm.name))
+		self.sm.states.each { s | addStateAttribute(s) }
+		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart_monitor",str_util.addUnderscore(self.sm.name))
 		java_class.attributes.add(attr)
 		
+		// Add all variables
+		sm.variables.each{variable | 
+			var variableAttr : JavaAttribute init JavaAttribute.new.initialize("private",getTypeToJava(variable), str_util.addUnderscore(variable.name))
+			java_class.attributes.add(variableAttr)
+		}
+		
 		// Add all methods
-		createConstructor(sm)
-		createStart(sm)
-		createStop(sm)
-		createEvents(sm)
+		createConstructor()
+		createStart()
+		createStop()
+		createEvents()
+		createActivities()
     end
     
     // Get the name of the given state and prefix it by 
@@ -79,13 +91,13 @@ class Transformation
     
     // add recursively a state and his child if any 
     // to the java class as an attribute
-	operation addAttribute(state : State) is do
+	operation addStateAttribute(state : State) is do
 		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart",getFullStateName(state))
 		java_class.attributes.add(attr)
 		if (CompositeState.isInstance(state)) then
 			var compState : CompositeState
 			compState ?= state
-			compState.states.each { s | addAttribute(s) }		
+			compState.states.each { s | addStateAttribute(s) }		
 		end
 	end
 	
@@ -122,41 +134,41 @@ class Transformation
 	end
 	
 	// create the java class constructor and initialize the behavior
-	operation createConstructor (sm : StateMachine) is do
-		var op : JavaOperation init JavaOperation.new.initialize("public","",str_util.replaceSpaceWithUnderscore(sm.name))
+	operation createConstructor () is do
+		var op : JavaOperation init JavaOperation.new.initialize("public","",str_util.replaceSpaceWithUnderscore(self.sm.name))
 		var line : String init ""
 
-		sm.states.each { s | addStateBehavior(s,op) }
+		self.sm.states.each { s | addStateBehavior(s,op) }
 		
 		// add method exception
 		op.exceptions.add("Statechart_exception")
 				
 		// Add StateMachine entry point
-		op.body.add(getFullStateName(sm.initialState.referencedState)+".inputState()")
+		op.body.add(getFullStateName(self.sm.initialState.referencedState)+".inputState()")
 		
 		// add the Monitor line with a chain of the child of StateMachine
-		line := str_util.addUnderscore(sm.name)+" = new Statechart_monitor"
-		sm.states.each { s | line := line + "(" + getFullStateName(s) + ".xor" }
+		line := str_util.addUnderscore(self.sm.name)+" = new Statechart_monitor"
+		self.sm.states.each { s | line := line + "(" + getFullStateName(s) + ".xor" }
 		line := line.substring(0,line.size-4)
-		sm.states.each { s | line := line + ")"}
+		self.sm.states.each { s | line := line + ")"}
 		line := line.substring(0,line.size-1)
-		line := line+ ","+ "\""+str_util.replaceSpaceWithUnderscore(sm.name)+"\",AbstractStatechart_monitor.Show_on_system_out, null)"
+		line := line+ ","+ "\""+str_util.replaceSpaceWithUnderscore(self.sm.name)+"\",AbstractStatechart_monitor.Show_on_system_out, null)"
 		op.body.add(line)
 		
 		java_class.operations.add(op)
 	end
 
 	// Create start method where we add the transitions [with event and guard]
-	operation createStart(sm : StateMachine) is do
+	operation createStart() is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","void","start")
 		var line : String init ""
 		
 		// add method exception
 		op.exceptions.add("Statechart_exception")
 		
-		sm.transitions.each{transition | 
+		self.sm.transitions.each{transition | 
 			// adding the event name 
-			line := str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".fires(\""+str_util.replaceSpaceWithUnderscore(transition.event.name)+"__Event\", "
+			line := str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(self.sm.name))+".fires(\""+str_util.replaceSpaceWithUnderscore(transition.event.name)+"__Event\", "
 			
 			// adding the source and the target
 			line := line + getFullStateName(transition.source) + ", "
@@ -172,15 +184,15 @@ class Transformation
 		}
 		
 		// Start the statemachine
-		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".start()")
+		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(self.sm.name))+".start()")
 		
 		java_class.operations.add(op)
 	end	
 	
 	// Stop method to stop the statemachine ^^
-	operation createStop(sm : StateMachine) is do
+	operation createStop() is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","void","stop")
-		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".stop()")
+		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(self.sm.name))+".stop()")
 		
 		// add method exception
 		op.exceptions.add("Statechart_exception")
@@ -189,27 +201,116 @@ class Transformation
 	end
 	
 	// add all events' function
-	operation createEvents(sm : StateMachine) is do
-		sm.events.each{event | 
+	operation createEvents() is do
+		self.sm.events.each{event | 
 			var function_name : String init str_util.replaceSpaceWithUnderscore(event.name)+"__Event"
 			var op : JavaOperation init JavaOperation.new.initialize("public","void",function_name)
 			
 			// add method exception
 			op.exceptions.add("Statechart_exception")
 			
-			op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(sm.name))+".run_to_completion(\""+event.name+"__Event\")")
+			op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(self.sm.name))+".run_to_completion(\""+event.name+"__Event\")")
 			java_class.operations.add(op)
 		}
 	end
 	
 	// Create all activities' functions with the operations done inside.
-	operation createActivities(sm : StateMachine) is do
-		
+	operation createActivities() is do
+		self.sm.states.each{s | createActivity(s)}
+	end
+	
+	operation createActivity(state : State) is do
+		if (not CompositeState.isInstance(state)) 
+			then // Not a composite state, just print activity if exist
+				if(state.~operation != void) then 
+					var op : JavaOperation init JavaOperation.new.initialize("public", "void",getFullStateName(state)+"__Activity")
+					state.~operation.contents.each{ assignment |
+						var line : String init ""
+						op.body.add(getVariableString(assignment.variable)+" = "+ getExpressionString(assignment.expression))
+					}
+					op.body.add("")
+					java_class.operations.add(op)
+				end
+			else // A composite state, compute all child state recursively to find all activities
+				var compState : CompositeState
+				var line : String init ""
+				compState ?= state
+				
+				// compute child recursively
+				compState.states.each { s | createActivity(s)}
+		end
 	end
 	
 	// Create all guards' functions (boolean) 
-	operation createGuards(sm : StateMachine) is do
+	operation createGuards() is do
 	
+	end
+	
+	// Get the variable string 
+	// If the variable is in the Statemachine, just reference it : this.{var_name}
+	// else create a local one {var_type} {var_name}
+	operation getVariableString(variable : Variable) : String is do
+		var isInStateMachine : Boolean init false
+		isInStateMachine := self.sm.variables.contains(variable)
+		
+		if(isInStateMachine)
+			then result := "this."+ str_util.addUnderscore(variable.name)
+			else result := getTypeToJava(variable)+" "+variable.name
+		end
+	end
+	
+	operation getTypeToJava(variable : Variable) : String is do 
+		if(BooleanVariable.isInstance(variable)) then result:="boolean" end
+		if(IntegerVariable.isInstance(variable)) then result:="int" end
+	end
+	
+	operation getExpressionString(expr : ExpressionElement) : String is do
+	
+		// If the expression element is an expression, we call getExpressionString again with left and right
+		if(Expression.isInstance(expr)) then 
+			var expression : Expression
+			expression ?= expr
+			stdio.writeln(expr.isVoid.toString)
+			result := "("+getExpressionString(expression.left) + getExpressionOperatorForJava(expression) + getExpressionString(expression.right) + ")"
+		end
+		// If the expression is a data, we print the value
+		if(Data.isInstance(expr)) then
+			if(BooleanData.isInstance(expr)) then
+				var bool : BooleanData init BooleanData.new
+				bool ?= expr
+				result := bool.~value.toString
+			end
+			if(IntegerData.isInstance(expr)) then
+				var int : IntegerData init IntegerData.new
+				int ?= expr
+				result := int.~value.toString
+			end
+		end
+		
+		// if the expression is a variable reference, we print the variable
+		if(VariableReference.isInstance(expr)) then
+			var variableReference : VariableReference
+			variableReference ?=expr
+			result := getVariableString(variableReference.variable)
+		end
+	end
+	
+	// add; sub; mul; div; eq; neq; gt; gte; lt; lte; and; or; not;
+	operation getExpressionOperatorForJava(expression : Expression) : String is do
+		var operator : String init expression.operator.name
+		if(operator == "add") then result := "+" end
+		if(operator == "sub") then result := "-" end
+		if(operator == "mul") then result := "*" end
+		if(operator == "div") then result := "/" end
+		if(operator == "eq") then result := "==" end
+		if(operator == "neq") then result := "!=" end
+		if(operator == "gt") then result := ">" end
+		if(operator == "gte") then result := ">=" end
+		if(operator == "lt") then result := "<" end
+		if(operator == "lte") then result := "<=" end
+		if(operator == "and") then result := "&&" end
+		if(operator == "or") then result := "||" end
+		if(operator == "not") then result := "!" end
 	end
 
 }
