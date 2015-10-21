@@ -38,20 +38,25 @@ class Main
 		var fileName : String init "platform:/resource/StateMachine"
 		var dirName : String
 		var modelName : String
+		var outputName : String
 		
 		dirName := stdio.read("Directory of the model? [default=models] ")
 		if (dirName == "") then dirName := "models" end	
 		modelName := stdio.read("Name of the model file? [default=Voiture.xmi] ")
 		if (modelName == "") then modelName := "Voiture.xmi" end	
 		fileName := fileName + "/" + dirName + "/" + modelName
-		
+
 		sm := smUtil.loadModel(fileName)
-		stdio.writeln("\n === State machine loaded ===\n")
-		
-		smUtil.printModel(sm)
-		stdio.writeln("\n === Transformation started ===\n")
+		//stdio.writeln("\n === State machine loaded ===\n")
+
+		//smUtil.printModel(sm)
+		//stdio.writeln("\n === Transformation started ===\n")
 		transformation.transform(sm)
-		stdio.writeln(transformation.java_class.toString())
 		
+		// write the reslt in an output file
+		var io : FileIO init FileIO.new 
+		var output : String init "platform:/resource/StateMachine/transfos/output/"+sm.name+".java"
+		io.writeTextFile(output, transformation.java_class.toString()) 
+		stdio.writeln("For transformation result see " + output)
 	end
 }

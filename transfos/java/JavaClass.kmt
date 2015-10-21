@@ -23,12 +23,14 @@ using JavaAttribute
 
 class JavaClass inherits JavaBase
 {
+	attribute imports : Set<String>
 	attribute attributes : Set<JavaAttribute>
 	attribute operations : Set<JavaOperation>
 	
 	operation initialize(visibility : String, name : String) : JavaClass is do
 		self.visibility := visibility
 		self.name := name
+		self.imports := Set<String>.new
 		self.attributes := Set<JavaAttribute>.new
 		self.operations := Set<JavaOperation>.new
 		
@@ -39,7 +41,12 @@ class JavaClass inherits JavaBase
 		var res : String init ""
 		var indent : String init "    "
 		
-		res := self.visibility + " class " + self.name +"{\n"
+		if(self.imports.size > 0) then
+			self.imports.each{import | res := res + "import " + import +";\n"}
+			res := res + "\n"
+		end
+		
+		res := res + self.visibility + " class " + self.name +"{\n"
 		res := res + "\n"
 		self.attributes.each{attr | res := res + indent + attr.toString()}
 		res := res + "\n"

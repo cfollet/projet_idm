@@ -46,12 +46,39 @@ class Transformation
 
 	// ecore -> java pau ware
     operation transform(sm : StateMachine) is do
+    	stdio.writeln("Processing transformation...")
     	// Set the StateMachine 
     	self.sm := sm
     	// Set class name
     	java_class.name := str_util.replaceSpaceWithUnderscore(self.sm.name)
     	
-    	// Add all attributes
+    	// add all imports 
+    	java_class.imports.add("com.pauware.pauware_engine._Core.*")
+    	java_class.imports.add("com.pauware.pauware_engine._Exception.*")
+    	java_class.imports.add("com.pauware.pauware_engine._Java_EE.*")
+    	
+    	// add all attributes
+    	addAttributes()
+		stdio.writeln("\t - attributes created")
+		
+		// Add all methods
+		addConstructor()
+		stdio.writeln("\t - constructor created")
+		addStart()
+		stdio.writeln("\t - start method created")
+		addStop()
+		stdio.writeln("\t - stop method created")
+		addEvents()
+		stdio.writeln("\t - events methods created")
+		addActivities()
+		stdio.writeln("\t - activities methods created")
+		addGuards()
+		stdio.writeln("\t - guards methods created")
+		
+		stdio.writeln("Transformation complete!")
+    end
+    
+    operation addAttributes() is do
 		self.sm.states.each { s | addStateAttribute(s) }
 		var attr : JavaAttribute init JavaAttribute.new.initialize("private","AbstractStatechart_monitor",str_util.addUnderscore(self.sm.name))
 		java_class.attributes.add(attr)
@@ -61,15 +88,7 @@ class Transformation
 			var variableAttr : JavaAttribute init JavaAttribute.new.initialize("private",getTypeToJava(variable), str_util.addUnderscore(variable.name))
 			java_class.attributes.add(variableAttr)
 		}
-		
-		// Add all methods
-		addConstructor()
-		addStart()
-		addStop()
-		addEvents()
-		addActivities()
-		addGuards()
-    end
+    end 
     
     // Get the name of the given state and prefix it by 
     // the name of his container if any
@@ -125,10 +144,11 @@ class Transformation
 				op.body.add(getFullStateName(compState.initialState.referencedState)+".inputState()")
 				
 				// add xor chain
+				line := line + getFullStateName(compState) + " = "
 				compState.states.each { s | line := line + "(" + getFullStateName(s) + ".xor" }
-				line := line.substring(1,line.size-4)
+				line := line.substring(0,line.size-4)
 				compState.states.each { s | line := line + ")"}
-				line := line.substring(0,line.size-1)
+				//line := line.substring(0,line.size-1)
 				line := line + ".name(\""+getFullStateName(compState)+"\")"
 				op.body.add(line)
 		end
@@ -159,7 +179,7 @@ class Transformation
 		// Initialze the variable
 		sm.variables.each{variable | 
 		if(variable.~value != void) then
-			line := getVariableName(variable)+" = "
+			line := getVariable(variable)+" = "
 			if(BooleanData.isInstance(variable.~value)) then
 				var bool : BooleanData init BooleanData.new
 				bool ?= variable.~value
@@ -245,7 +265,7 @@ class Transformation
 					var op : JavaOperation init JavaOperation.new.initialize("public", "void",getFullStateName(state)+"__Activity")
 					state.~operation.contents.each{ assignment |
 						var line : String init ""
-						op.body.add(getVariableName(assignment.variable)+" = "+ getExpressionName(assignment.expression))
+						op.body.add(getVariable(assignment.variable)+" = "+ getExpression(assignment.expression))
 					}
 					op.body.add("")
 					java_class.operations.add(op)
@@ -265,7 +285,7 @@ class Transformation
 		self.sm.transitions.each{ transition |
 		if(transition.guard != void) then
 			var op : JavaOperation init JavaOperation.new.initialize("public", "boolean",getFullStateName(transition.source)+"_"+ getFullStateName(transition.target)+ "__Guard")
-			op.body.add("return" + getExpressionName(transition.guard))
+			op.body.add("return " + getExpression(transition.guard))
 			java_class.operations.add(op)
 		end
 		}
@@ -274,7 +294,7 @@ class Transformation
 	// Get the variable string 
 	// If the variable is in the Statemachine, just reference it : this.{var_name}
 	// else create a local one {var_type} {var_name}
-	operation getVariableName(variable : Variable) : String is do
+	operation getVariable(variable : Variable) : String is do
 		var isInStateMachine : Boolean init false
 		isInStateMachine := self.sm.variables.contains(variable)
 		
@@ -289,13 +309,13 @@ class Transformation
 		if(IntegerVariable.isInstance(variable)) then result:="int" end
 	end
 	
-	operation getExpressionName(expr : ExpressionElement) : String is do
+	operation getExpression(expr : ExpressionElement) : String is do
 	
-		// If the expression element is an expression, we call getExpressionName again with left and right
+		// If the expression element is an expression, we call getExpression again with left and right
 		if(Expression.isInstance(expr)) then 
 			var expression : Expression
 			expression ?= expr
-			result := "("+getExpressionName(expression.left) + getOperatorForJava(expression.operator.name) + getExpressionName(expression.right) + ")"
+			result := "("+getExpression(expression.left) + getOperatorForJava(expression.operator.name) + getExpression(expression.right) + ")"
 		end
 		// If the expression is a data, we print the value
 		if(Data.isInstance(expr)) then
@@ -315,7 +335,7 @@ class Transformation
 		if(VariableReference.isInstance(expr)) then
 			var variableReference : VariableReference
 			variableReference ?=expr
-			result := getVariableName(variableReference.variable)
+			result := getVariable(variableReference.variable)
 		end
 	end
 	

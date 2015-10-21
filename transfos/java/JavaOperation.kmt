@@ -18,6 +18,7 @@ using JavaBase
 
 class JavaOperation inherits JavaBase
 {
+	attribute header_comments : Bag<String>
 	attribute return_type : String
 	attribute parameters : Set<String>
 	attribute exceptions : Set<String>
@@ -30,6 +31,7 @@ class JavaOperation inherits JavaBase
 		self.parameters := Set<String>.new
 		self.exceptions := Set<String>.new
 		self.body := Bag<String>.new
+		self.header_comments := Bag<String>.new
 		
 		result := self
 	end
@@ -44,7 +46,8 @@ class JavaOperation inherits JavaBase
 		var res : String init ""
 		var indent : String init "    "
 		
-		res:=self.visibility+" "+self.return_type+" "+self.name
+		self.header_comments.each{comment | res := res + "//" + comment + "\n"}
+		res:= res + self.visibility+" "+self.return_type+" "+self.name
 		res := res + "("
 		if(self.parameters.size > 0) 
 			then 	self.parameters.each{parameter | res := res + parameter + ", "}
@@ -64,6 +67,9 @@ class JavaOperation inherits JavaBase
 			if(line != "")
 				then res := res + indent + line + ";\n" 
 				else res := res + " \n"
+			end
+			if(line.contains("//"))
+				then res := res + indent + line + "\n" 
 			end
 		}
 		indent := "    "
