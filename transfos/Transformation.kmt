@@ -63,11 +63,12 @@ class Transformation
 		}
 		
 		// Add all methods
-		createConstructor()
-		createStart()
-		createStop()
-		createEvents()
-		createActivities()
+		addConstructor()
+		addStart()
+		addStop()
+		addEvents()
+		addActivities()
+		addGuards()
     end
     
     // Get the name of the given state and prefix it by 
@@ -134,7 +135,7 @@ class Transformation
 	end
 	
 	// create the java class constructor and initialize the behavior
-	operation createConstructor () is do
+	operation addConstructor () is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","",str_util.replaceSpaceWithUnderscore(self.sm.name))
 		var line : String init ""
 
@@ -155,11 +156,29 @@ class Transformation
 		line := line+ ","+ "\""+str_util.replaceSpaceWithUnderscore(self.sm.name)+"\",AbstractStatechart_monitor.Show_on_system_out, null)"
 		op.body.add(line)
 		
+		// Initialze the variable
+		sm.variables.each{variable | 
+		if(variable.~value != void) then
+			line := getVariableName(variable)+" = "
+			if(BooleanData.isInstance(variable.~value)) then
+				var bool : BooleanData init BooleanData.new
+				bool ?= variable.~value
+				line := line + bool.~value.toString
+			end
+			if(IntegerData.isInstance(variable.~value)) then
+				var int : IntegerData init IntegerData.new
+				int ?= variable.~value
+				line := line + int.~value.toString
+			end
+			op.body.add(line)
+		end
+		}
+		
 		java_class.operations.add(op)
 	end
 
 	// Create start method where we add the transitions [with event and guard]
-	operation createStart() is do
+	operation addStart() is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","void","start")
 		var line : String init ""
 		
@@ -190,7 +209,7 @@ class Transformation
 	end	
 	
 	// Stop method to stop the statemachine ^^
-	operation createStop() is do
+	operation addStop() is do
 		var op : JavaOperation init JavaOperation.new.initialize("public","void","stop")
 		op.body.add(str_util.addUnderscore(str_util.replaceSpaceWithUnderscore(self.sm.name))+".stop()")
 		
@@ -201,7 +220,7 @@ class Transformation
 	end
 	
 	// add all events' function
-	operation createEvents() is do
+	operation addEvents() is do
 		self.sm.events.each{event | 
 			var function_name : String init str_util.replaceSpaceWithUnderscore(event.name)+"__Event"
 			var op : JavaOperation init JavaOperation.new.initialize("public","void",function_name)
@@ -215,18 +234,18 @@ class Transformation
 	end
 	
 	// Create all activities' functions with the operations done inside.
-	operation createActivities() is do
-		self.sm.states.each{s | createActivity(s)}
+	operation addActivities() is do
+		self.sm.states.each{s | addActivity(s)}
 	end
 	
-	operation createActivity(state : State) is do
+	operation addActivity(state : State) is do
 		if (not CompositeState.isInstance(state)) 
 			then // Not a composite state, just print activity if exist
 				if(state.~operation != void) then 
 					var op : JavaOperation init JavaOperation.new.initialize("public", "void",getFullStateName(state)+"__Activity")
 					state.~operation.contents.each{ assignment |
 						var line : String init ""
-						op.body.add(getVariableString(assignment.variable)+" = "+ getExpressionString(assignment.expression))
+						op.body.add(getVariableName(assignment.variable)+" = "+ getExpressionName(assignment.expression))
 					}
 					op.body.add("")
 					java_class.operations.add(op)
@@ -237,19 +256,25 @@ class Transformation
 				compState ?= state
 				
 				// compute child recursively
-				compState.states.each { s | createActivity(s)}
+				compState.states.each { s | addActivity(s)}
 		end
 	end
 	
 	// Create all guards' functions (boolean) 
-	operation createGuards() is do
-	
+	operation addGuards() is do
+		self.sm.transitions.each{ transition |
+		if(transition.guard != void) then
+			var op : JavaOperation init JavaOperation.new.initialize("public", "boolean",getFullStateName(transition.source)+"_"+ getFullStateName(transition.target)+ "__Guard")
+			op.body.add("return" + getExpressionName(transition.guard))
+			java_class.operations.add(op)
+		end
+		}
 	end
 	
 	// Get the variable string 
 	// If the variable is in the Statemachine, just reference it : this.{var_name}
 	// else create a local one {var_type} {var_name}
-	operation getVariableString(variable : Variable) : String is do
+	operation getVariableName(variable : Variable) : String is do
 		var isInStateMachine : Boolean init false
 		isInStateMachine := self.sm.variables.contains(variable)
 		
@@ -264,14 +289,13 @@ class Transformation
 		if(IntegerVariable.isInstance(variable)) then result:="int" end
 	end
 	
-	operation getExpressionString(expr : ExpressionElement) : String is do
+	operation getExpressionName(expr : ExpressionElement) : String is do
 	
-		// If the expression element is an expression, we call getExpressionString again with left and right
+		// If the expression element is an expression, we call getExpressionName again with left and right
 		if(Expression.isInstance(expr)) then 
 			var expression : Expression
 			expression ?= expr
-			stdio.writeln(expr.isVoid.toString)
-			result := "("+getExpressionString(expression.left) + getExpressionOperatorForJava(expression) + getExpressionString(expression.right) + ")"
+			result := "("+getExpressionName(expression.left) + getOperatorForJava(expression.operator.name) + getExpressionName(expression.right) + ")"
 		end
 		// If the expression is a data, we print the value
 		if(Data.isInstance(expr)) then
@@ -291,13 +315,12 @@ class Transformation
 		if(VariableReference.isInstance(expr)) then
 			var variableReference : VariableReference
 			variableReference ?=expr
-			result := getVariableString(variableReference.variable)
+			result := getVariableName(variableReference.variable)
 		end
 	end
 	
 	// add; sub; mul; div; eq; neq; gt; gte; lt; lte; and; or; not;
-	operation getExpressionOperatorForJava(expression : Expression) : String is do
-		var operator : String init expression.operator.name
+	operation getOperatorForJava(operator : String) : String is do
 		if(operator == "add") then result := "+" end
 		if(operator == "sub") then result := "-" end
 		if(operator == "mul") then result := "*" end
